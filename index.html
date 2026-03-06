@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Satori Jazz</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+    /* PP Neue Montreal local fonts (place .woff2 files into the fonts/ folder) */
+    @font-face {
+      font-family: 'PP Neue Montreal';
+      src: url('fonts/PPNeueMontreal-Regular.woff2') format('woff2');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'PP Neue Montreal';
+      src: url('fonts/PPNeueMontreal-Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root { --red: #c0112b; --gray-light: #c8c8c8; --gray-mid: #999; --black: #000; --text-default: rgba(0,0,0,0.2); --white: #ffffff; }
+    html, body { width: 100%; height: 100%; background: var(--white); font-family: 'PP Neue Montreal', 'Inter', sans-serif; color: var(--text-default); overflow: hidden; }
+
+    nav { position: fixed; top: 0; left: 0; width: 100%; padding: 16px 16px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 100; }
+    /* Logo: fixed width 480px, preserve aspect ratio (SVG original 414x57 -> height ≈ 66.13px) */
+    .logo { display: block; width: 480px; color: var(--text-default); }
+    .logo svg { width: 100%; height: auto; display: block; }
+    .logo svg path { fill: currentColor !important; }
+    .nav-about { font-size: 12px; font-weight: 700; color: var(--text-default); text-decoration: none; padding-top: 8px; transition: color 0.2s; }
+    .nav-about::before { content: none; }
+    .nav-about:hover { color: var(--black); }
+
+    main { min-height: 100vh; display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr auto; padding-top: 120px; }
+
+    .era-filter { padding: 0 0 60px 0; display: flex; flex-direction: column; gap: 12px; position: fixed; left: 16px; top: 50%; transform: translateY(-50%); width: max-content; }
+    .era-filter button { background: none; border: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--text-default); text-align: left; padding: 0; transition: color 0.2s; }
+    .era-filter button:hover { color: var(--black); }
+    .era-filter button.active { color: var(--black); font-weight: 700; }
+
+    /* right column: artist list (hidden by default) */
+    /* reduced gap between left menu and right artist list */
+    .artist-list { position: fixed; left: 0; top: 50%; transform: translateY(-50%); width: max-content; max-width: 60vw; background: transparent; padding: 8px 12px; box-sizing: border-box; opacity: 0; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
+    .artist-list[data-visible="true"] { opacity: 1; pointer-events: auto; }
+    .artist-list h2 { font-size: 12px; font-weight: 700; color: var(--black); margin-bottom: 12px; }
+    .artist-list ul { list-style: none; display: flex; flex-direction: column; gap: 8px; padding-left: 0; margin: 0; }
+    .artist-list ul li { font-size: 12px; color: var(--text-default); cursor: pointer; transition: color 0.15s; font-weight: 700; white-space: nowrap; }
+    .artist-list ul li:hover { color: var(--black); }
+
+    /* orb removed per request */
+
+    .description { position: fixed; bottom: 16px; left: 16px; right: 16px; max-width: 480px; padding: 0; }
+    .description p { font-size: 12px; line-height: 1.5; color: var(--text-default); font-weight: 700; font-style: normal; }
+    /* floating preview overlay */
+    .artist-preview { position: fixed; left: 120px; top: 120px; background: var(--white); padding: 12px 16px; box-shadow: 0 6px 18px rgba(0,0,0,0.08); border-radius: 6px; min-width: 200px; z-index: 200; transition: opacity 0.15s, transform 0.15s; }
+    .artist-preview[aria-hidden="true"] { opacity: 0; pointer-events: none; transform: translateY(-6px); }
+    .artist-preview[aria-hidden="false"] { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .artist-preview h3 { font-size: 12px; font-weight: 700; color: var(--black); margin: 0 0 8px 0; }
+    .artist-preview ul { list-style: none; display: flex; flex-direction: column; gap: 8px; padding-left: 0; margin: 0; }
+    .artist-preview ul li { font-size: 12px; color: var(--gray-mid); cursor: pointer; transition: color 0.15s; }
+    .artist-preview ul li:hover { color: var(--black); }
+
+    /* Detail view */
+    .detail-view {
+      position: fixed;
+      inset: 0;
+      background: var(--white);
+      z-index: 300;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 80px;
+      padding: 80px;
+    }
+    .detail-view.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .detail-cover {
+      width: 400px;
+      height: 400px;
+      background-size: cover;
+      background-position: center;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .detail-info { max-width: 320px; }
+    .detail-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--black);
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .detail-artist {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-default);
+    }
+    .detail-back {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-default);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color 0.2s;
+      padding: 0;
+    }
+    .detail-back:hover { color: var(--black); }
+
+    /* Archive view */
+    .archive-view {
+      position: fixed;
+      inset: 0;
+      background: var(--white);
+      z-index: 300;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      overflow-y: auto;
+      padding: 80px 16px 40px;
+    }
+    .archive-view.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .archive-back {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-default);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color 0.2s;
+      padding: 0;
+      z-index: 301;
+    }
+    .archive-back:hover { color: var(--black); }
+    .archive-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .archive-card {
+      width: 160px;
+      height: 160px;
+      background-size: cover;
+      background-position: center;
+      border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .archive-card-info {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 24px 8px 8px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.65));
+      border-radius: 0 0 4px 4px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .archive-card-info-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+    }
+    .archive-card-info-year {
+      font-size: 12px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.7);
+      margin-top: 2px;
+    }
+    .archive-card:hover .archive-card-info { opacity: 1; }
+
+    /* Cards stack */
+    .cards-scene {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, calc(-50% + 40px));
+      width: 560px;
+      height: 560px;
+      transform-style: preserve-3d;
+      perspective: 2400px;
+    }
+    .card-iso {
+      position: absolute;
+      inset: 0;
+      border-radius: 6px;
+      transform: rotateX(60deg) rotateZ(30deg) translateZ(calc(var(--i, 0) * 10px));
+      background-size: cover;
+      background-position: center;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo" aria-hidden="false">
+      <svg width="414" height="57" viewBox="0 0 414 57" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Satori Jazz logo">
+<path d="M24 56.96C17.52 56.96 12.64 56.48 9.44 55.6C6.24 54.72 4 53.12 2.72 50.8C1.36 48.48 0.56 44.96 0.16 40.24L0 38.08H15.2L15.52 39.76C16 42.4 16.96 44.4 18.48 45.76C20 47.12 22.08 47.84 24.72 47.84C26.72 47.84 28.24 47.36 29.44 46.48C30.64 45.6 31.2 44.32 31.2 42.8C31.2 41.52 30.88 40.56 30.24 39.92C29.52 39.28 28.24 38.72 26.4 38.16L13.84 34.72C8.96 33.36 5.52 31.52 3.36 29.12C1.2 26.8 0.16 23.44 0.16 19.04V15.68C0.16 11.76 0.8 8.64 2.08 6.4C3.28 4.16 5.52 2.56 8.72 1.52C11.92 0.479999 16.56 0 22.56 0H25.6C31.92 0 36.56 0.4 39.68 1.28C42.72 2.16 44.88 3.68 46.16 5.84C47.44 8 48.24 11.36 48.56 15.92L48.72 18.08H34.08L33.84 16.72C33.36 14.16 32.48 12.24 31.12 10.88C29.76 9.6 27.76 8.96 25.28 8.96C23.12 8.96 21.36 9.36 20.16 10.24C18.96 11.12 18.32 12.24 18.32 13.68C18.32 14.8 18.64 15.68 19.36 16.32C20.08 17.04 21.36 17.6 23.2 18.16L36.32 22C40.72 23.28 43.92 24.96 45.84 27.04C47.68 29.12 48.64 32.16 48.64 36.08V40.08C48.64 44.48 48.08 47.84 46.88 50.24C45.68 52.64 43.6 54.32 40.64 55.36C37.68 56.4 33.36 56.96 27.76 56.96H24Z" fill="#CCCCCC"/>
+<path d="M53.9944 53.52C51.3544 51.28 50.0744 48.16 50.0744 44.16C50.0744 40.64 51.0344 38 52.9544 36.32C54.8744 34.64 57.8344 33.52 61.7544 33.12L78.7944 31.28V30C78.7944 28.32 78.2344 27.12 77.1944 26.32C76.1544 25.6 74.7944 25.2 73.1944 25.2C71.5944 25.2 70.3144 25.52 69.2744 26.16C68.2344 26.8 67.5144 28 67.1144 29.68L66.8744 30.72H50.6344L50.7944 29.36C51.1944 26 51.9944 23.36 53.2744 21.44C54.4744 19.52 56.3944 18.16 58.9544 17.28C61.4344 16.4 64.8744 16 69.2744 16H77.9944C82.2344 16 85.5944 16.48 88.1544 17.36C90.7144 18.24 92.6344 19.76 93.9144 21.92C95.1144 24.08 95.7544 27.04 95.7544 30.8V33.92L95.6744 48.32C95.6744 52.56 95.6744 55.28 95.7544 56.48H78.6344V51.6H78.3144C75.1944 55.2 70.6344 56.96 64.6344 56.96C60.1544 56.96 56.6344 55.84 53.9944 53.52ZM74.9544 46.72C76.0744 46.08 77.0344 45.12 77.7544 43.76C78.4744 42.4 78.7944 40.8 78.7944 38.96V37.76L71.9944 39.92C69.2744 40.8 67.9144 42.24 67.9144 44.24C67.9144 45.44 68.2344 46.32 68.9544 46.88C69.6744 47.44 70.5544 47.76 71.6744 47.76C72.7144 47.76 73.8344 47.44 74.9544 46.72Z" fill="#CCCCCC"/>
+<path d="M117.82 56.48C115.82 56.48 114.3 56.4 113.26 56.24C112.14 56.08 111.1 55.84 110.22 55.52C107.26 54.32 105.34 52.08 104.62 48.88C104.3 47.6 104.14 45.36 104.14 42.16V28.96H97.5V16.48H104.14V0.479999H122.06V16.48H129.82V28.96H122.06V41.2C122.06 42.56 122.46 43.68 123.18 44.4C123.9 45.12 125.02 45.52 126.38 45.52H129.82V56.48H117.82Z" fill="#CCCCCC"/>
+<path d="M150.359 56.96C144.199 56.96 139.559 55.92 136.439 53.76C133.319 51.68 131.719 48.08 131.719 42.96V30C131.719 24.8 133.319 21.2 136.519 19.12C139.639 17.04 144.279 16 150.359 16H158.839C164.999 16 169.639 17.04 172.759 19.12C175.879 21.28 177.479 24.88 177.479 30V42.96C177.479 48.16 175.879 51.76 172.759 53.84C169.559 55.92 164.919 56.96 158.839 56.96H150.359ZM158.199 47.28C159.079 46.24 159.479 44.8 159.479 42.96L159.399 39.6C159.319 38.88 159.319 37.84 159.319 36.4L159.399 33.12C159.479 32.4 159.479 31.28 159.479 29.84C159.479 28.08 159.079 26.64 158.199 25.6C157.319 24.56 156.119 24.08 154.599 24.08C153.079 24.08 151.959 24.56 151.079 25.6C150.199 26.64 149.719 28.08 149.719 29.84L149.799 33.12C149.879 33.84 149.879 34.96 149.879 36.4C149.879 37.84 149.879 38.88 149.799 39.6L149.719 42.96C149.719 44.8 150.119 46.24 150.999 47.28C151.879 48.32 153.079 48.88 154.599 48.88C156.119 48.88 157.319 48.32 158.199 47.28Z" fill="#CCCCCC"/>
+<path d="M179.615 56.48V16.48H196.655V22.16H196.975C197.855 20.4 199.055 18.8 200.735 17.36C202.335 16 204.335 15.2 206.735 15.04V30.48C206.335 30.48 205.775 30.56 204.895 30.64C201.135 31.28 198.815 33.36 197.935 36.88C197.695 38 197.535 39.84 197.535 42.4V56.48H179.615Z" fill="#CCCCCC"/>
+<path d="M226.832 13.12H208.912V0.479999H226.832V13.12ZM226.832 56.48H208.912V16.48H226.832V56.48Z" fill="#CCCCCC"/>
+<path d="M244.219 55.44V44.4C247.339 45.12 249.579 45.44 250.939 45.44C253.019 45.44 254.539 44.88 255.579 43.84C256.539 42.8 257.019 41.28 257.019 39.12V0.479999H275.979V39.12C275.979 45.44 274.459 49.92 271.419 52.72C268.299 55.52 263.339 56.96 256.379 56.96C252.139 56.96 248.059 56.48 244.219 55.44Z" fill="#CCCCCC"/>
+<path d="M281.729 53.52C279.089 51.28 277.809 48.16 277.809 44.16C277.809 40.64 278.769 38 280.689 36.32C282.609 34.64 285.569 33.52 289.489 33.12L306.529 31.28V30C306.529 28.32 305.969 27.12 304.929 26.32C303.889 25.6 302.529 25.2 300.929 25.2C299.329 25.2 298.049 25.52 297.009 26.16C295.969 26.8 295.249 28 294.849 29.68L294.609 30.72H278.369L278.529 29.36C278.929 26 279.729 23.36 281.009 21.44C282.209 19.52 284.129 18.16 286.689 17.28C289.169 16.4 292.609 16 297.009 16H305.729C309.969 16 313.329 16.48 315.889 17.36C318.449 18.24 320.369 19.76 321.649 21.92C322.849 24.08 323.489 27.04 323.489 30.8V33.92L323.409 48.32C323.409 52.56 323.409 55.28 323.489 56.48H306.369V51.6H306.049C302.929 55.2 298.369 56.96 292.369 56.96C287.889 56.96 284.369 55.84 281.729 53.52ZM302.689 46.72C303.809 46.08 304.769 45.12 305.489 43.76C306.209 42.4 306.529 40.8 306.529 38.96V37.76L299.729 39.92C297.009 40.8 295.649 42.24 295.649 44.24C295.649 45.44 295.969 46.32 296.689 46.88C297.409 47.44 298.289 47.76 299.409 47.76C300.449 47.76 301.569 47.44 302.689 46.72Z" fill="#CCCCCC"/>
+<path d="M368.585 56.48H325.625V48.08L345.865 26.72V26.4H325.625V16.48H368.585V24.88L348.105 46.24V46.56H368.585V56.48Z" fill="#CCCCCC"/>
+<path d="M413.429 56.48H370.469V48.08L390.709 26.72V26.4H370.469V16.48H413.429V24.88L392.949 46.24V46.56H413.429V56.48Z" fill="#CCCCCC"/>
+</svg>
+    </div>
+    <div style="display:flex;gap:16px;">
+      <a href="#" class="nav-about" id="nav-archive">Archive</a>
+      <a href="#" class="nav-about">About</a>
+    </div>
+  </nav>
+
+
+  <div class="detail-view" id="detail-view">
+    <button class="detail-back" id="detail-back">← Back</button>
+    <div class="detail-cover" id="detail-cover"></div>
+    <div class="detail-info">
+      <div class="detail-title" id="detail-title"></div>
+      <div class="detail-artist" id="detail-artist"></div>
+    </div>
+  </div>
+
+  <div class="archive-view" id="archive-view">
+    <button class="archive-back" id="archive-back">← Back</button>
+    <div class="archive-grid">
+      <div class="archive-card" style="background-image:url('covers/The-Mystery-Kindaichi-Band---Music-Mystery---The-Adventure-Of-Kohsuke-Kindaichi.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Seiji-Yokoyama---Tomb-Of-Dracula.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Akira-Miyazawa-&-Soul-Leon---Karajishi-Botan.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Piston-Horiuchi---Enchanted-Drumming-FRONT.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Piston-Horiuchi---Enchanted-Drumming-BACK.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Minoru-Muraoka-and-New-Dimension-Group---Yuri-Furi-Suri.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/why-is-scenery-by-ryo-fukui-such-a-controversial-album-in-v0-j0uxquow8a0e1.webp')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/_Jimmy-Takeuchi-&-The-Exciters---Drum-Drum-Drum-Jimmy-Takeuchi-VS-Japanese-Folk-Music.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/_Harry-Hosono-And-The-Yellow-Magic-Band---Paraiso.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Tokihiko-Morishita-&-Shigeru-Mizuki---Youkai-Gensou.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Masami-Kawahara-Y-Su-Los-Rumbelos---Latin-Flash.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+      <div class="archive-card" style="background-image:url('covers/Mighty-Salad-Syndicate---Soul-On!-.jpg')"><div class="archive-card-info"><div class="archive-card-info-title">Scenary - Ryo Fukuy</div><div class="archive-card-info-year">1997</div></div></div>
+    </div>
+  </div>
+
+  <div class="cards-scene">
+    <div class="card-iso" style="--i:0;  background-image:url('covers/The-Mystery-Kindaichi-Band---Music-Mystery---The-Adventure-Of-Kohsuke-Kindaichi.jpg')"></div>
+    <div class="card-iso" style="--i:1;  background-image:url('covers/Seiji-Yokoyama---Tomb-Of-Dracula.jpg')"></div>
+    <div class="card-iso" style="--i:2;  background-image:url('covers/Akira-Miyazawa-&-Soul-Leon---Karajishi-Botan.jpg')"></div>
+    <div class="card-iso" style="--i:3;  background-image:url('covers/Piston-Horiuchi---Enchanted-Drumming-FRONT.jpg')"></div>
+    <div class="card-iso" style="--i:4;  background-image:url('covers/Minoru-Muraoka-and-New-Dimension-Group---Yuri-Furi-Suri.jpg')"></div>
+    <div class="card-iso" style="--i:5;  background-image:url('covers/why-is-scenery-by-ryo-fukui-such-a-controversial-album-in-v0-j0uxquow8a0e1.webp')"></div>
+    <div class="card-iso" style="--i:6;  background-image:url('covers/The-Mystery-Kindaichi-Band---Music-Mystery---The-Adventure-Of-Kohsuke-Kindaichi.jpg')"></div>
+    <div class="card-iso" style="--i:7;  background-image:url('covers/Seiji-Yokoyama---Tomb-Of-Dracula.jpg')"></div>
+    <div class="card-iso" style="--i:8;  background-image:url('covers/Akira-Miyazawa-&-Soul-Leon---Karajishi-Botan.jpg')"></div>
+    <div class="card-iso" style="--i:9;  background-image:url('covers/Piston-Horiuchi---Enchanted-Drumming-FRONT.jpg')"></div>
+    <div class="card-iso" style="--i:10; background-image:url('covers/Minoru-Muraoka-and-New-Dimension-Group---Yuri-Furi-Suri.jpg')"></div>
+    <div class="card-iso" style="--i:11; background-image:url('covers/why-is-scenery-by-ryo-fukui-such-a-controversial-album-in-v0-j0uxquow8a0e1.webp')"></div>
+    <div class="card-iso" style="--i:12; background-image:url('covers/The-Mystery-Kindaichi-Band---Music-Mystery---The-Adventure-Of-Kohsuke-Kindaichi.jpg')"></div>
+    <div class="card-iso" style="--i:13; background-image:url('covers/Seiji-Yokoyama---Tomb-Of-Dracula.jpg')"></div>
+    <div class="card-iso" style="--i:14; background-image:url('covers/Akira-Miyazawa-&-Soul-Leon---Karajishi-Botan.jpg')"></div>
+    <div class="card-iso" style="--i:15; background-image:url('covers/Piston-Horiuchi---Enchanted-Drumming-FRONT.jpg')"></div>
+    <div class="card-iso" style="--i:16; background-image:url('covers/Minoru-Muraoka-and-New-Dimension-Group---Yuri-Furi-Suri.jpg')"></div>
+    <div class="card-iso" style="--i:17; background-image:url('covers/why-is-scenery-by-ryo-fukui-such-a-controversial-album-in-v0-j0uxquow8a0e1.webp')"></div>
+  </div>
+
+  <main>
+    <aside class="era-filter">
+      <button class="active" data-era="all">All</button>
+      <button data-era="60s">60s Modern</button>
+      <button data-era="70s">70s Avant</button>
+      <button data-era="fusion">Fusion Era</button>
+      <button data-era="city">City Jazz</button>
+      <button data-era="rare">Rare Grooves</button>
+    </aside>
+
+    <section class="artist-list">
+      <ul id="artist-ul">
+        <li>Hiroshi Suzuki</li>
+        <li>Isao Suzuki</li>
+        <li>Masaru Imada</li>
+        <li>Minoru Muraoka</li>
+        <li>Nobuyoshi Ino</li>
+        <li>Ryo Fukui</li>
+        <li>Ryo Kawasaki</li>
+        <li>Shigeharu Mukai</li>
+        <li>Sadao Watanabe</li>
+        <li>Terumasa Hino</li>
+      </ul>
+    </section>
+
+    <!-- orb removed -->
+
+    <footer class="description">
+      <p>Japanese 70s avant-garde jazz was a sonic laboratory where a new musical identity emerged. A scene defined by essential albums and rare recordings that explored free improvisation, spirituality, and fusions with local traditions: from daring modalism to new electric forms, and from underground clubs to cult releases for collectors.</p>
+    </footer>
+  </main>
+
+  <script>
+    const eras = {
+      all: { title: 'All', artists: ['Hiroshi Suzuki','Isao Suzuki','Masaru Imada','Minoru Muraoka','Nobuyoshi Ino','Ryo Fukui','Ryo Kawasaki','Shigeharu Mukai','Sadao Watanabe','Terumasa Hino'], preview: ['Hiroshi Suzuki','Isao Suzuki','Masaru Imada','Minoru Muraoka','Nobuyoshi Ino','Ryo Fukui','Ryo Kawasaki','Shigeharu Mukai','Sadao Watanabe','Terumasa Hino'], desc: 'Japanese 70s avant-garde jazz was a sonic laboratory where a new musical identity emerged. A scene defined by essential albums and rare recordings that explored free improvisation, spirituality, and fusions with local traditions.' },
+      '60s': { title: '60s Modern', artists: ['Masaru Imada','Nobuyoshi Ino','Shigeharu Mukai','Sadao Watanabe','Terumasa Hino','Kiyoshi Sugimoto','Eiji Kitamura','Hachidai Nakamura','Toshiko Akiyoshi','Hideo Shiraki'], preview: ['Masaru Imada','Nobuyoshi Ino','Shigeharu Mukai','Sadao Watanabe','Terumasa Hino','Kiyoshi Sugimoto','Eiji Kitamura','Hachidai Nakamura','Toshiko Akiyoshi','Hideo Shiraki'], desc: 'The 1960s marked Japan\'s first encounter with modern jazz, absorbing bebop and hard bop influences while beginning to develop a distinct local voice in smoky Tokyo clubs.' },
+      '70s': { title: '70s Avant', artists: ['Hiroshi Suzuki','Minoru Muraoka','Ryo Kawasaki','Masahiko Togashi','Yosuke Yamashita','Kazumi Watanabe','Motohiko Hino','Masabumi Kikuchi','Tetsu Saitoh','Kikuchi Masahiro'], preview: ['Hiroshi Suzuki','Minoru Muraoka','Ryo Kawasaki','Masahiko Togashi','Yosuke Yamashita','Kazumi Watanabe','Motohiko Hino','Masabumi Kikuchi','Tetsu Saitoh','Kikuchi Masahiro'], desc: 'The most adventurous decade. Japanese musicians pushed into free jazz and spiritual territory, blending traditional instruments with electric experimentation.' },
+      fusion: { title: 'Fusion Era', artists: ['Ryo Kawasaki','Isao Suzuki','Masaru Imada','Kazumi Watanabe','Toshinori Kondo','Casiopea','T-SQUARE','Terumasa Hino','Akira Jimbo','Keiko Matsui'], preview: ['Ryo Kawasaki','Isao Suzuki','Masaru Imada','Kazumi Watanabe','Toshinori Kondo','Casiopea','T-SQUARE','Terumasa Hino','Akira Jimbo','Keiko Matsui'], desc: 'Drawing from Miles Davis\'s electric period, Japanese fusion artists crafted a uniquely soft, melodic take on the genre — sophisticated, urban, and ahead of its time.' },
+      city: { title: 'City Jazz', artists: ['Ryo Fukui','Nobuyoshi Ino','Junko Onishi','Hiroshi Takasu','Keiko Lee','Makoto Ozone','Akiko Yano','Hirokuni Korekata','Toru Dodo','Junko Onishi'], preview: ['Ryo Fukui','Nobuyoshi Ino','Junko Onishi','Hiroshi Takasu','Keiko Lee','Makoto Ozone','Toru Takemitsu','Akiko Yano','Hirokuni Korekata','Toru Dodo'], desc: 'City Jazz emerged from Sapporo and Tokyo\'s late-night bars. Introspective, lyrical, deeply influenced by Bill Evans — a sound that defined the solitary urban night.' },
+      rare: { title: 'Rare Grooves', artists: ['Hiroshi Suzuki','Minoru Muraoka','Shigeharu Mukai','Yoshio Suzuki','Motoya Hamaguchi','Hiroshi Fukumura','Shunzo Ohno','Hiroshi Murakami','Kazuo Ohno','Yasushi Ozawa'], preview: ['Hiroshi Suzuki','Minoru Muraoka','Shigeharu Mukai','Yoshio Suzuki','Motoya Hamaguchi','Hiroshi Fukumura','Shunzo Ohno','Hiroshi Murakami','Kazuo Ohno','Yasushi Ozawa'], desc: 'Obscure private pressings and limited runs that became holy grails for crate diggers worldwide. Funky, spiritual, and entirely unlike anything produced in the West.' }
+    };
+
+    const buttons = document.querySelectorAll('.era-filter button');
+    const ul = document.getElementById('artist-ul');
+    const desc = document.querySelector('.description p');
+    const artistListEl = document.querySelector('.artist-list');
+    let hideTimer = null;
+
+    function showArtistList(key) {
+      const data = eras[key];
+      ul.innerHTML = '';
+      // first item: All -> show full list when clicked
+      const allLi = document.createElement('li');
+      allLi.textContent = 'All';
+      allLi.style.cursor = 'pointer';
+      allLi.addEventListener('click', () => {
+        // simulate selecting the global All era
+        buttons.forEach(b => b.classList.remove('active'));
+        const allBtn = document.querySelector('.era-filter button[data-era="all"]');
+        if (allBtn) allBtn.classList.add('active');
+        const era = eras['all'];
+        desc.textContent = era.desc;
+        ul.innerHTML = '';
+        (era.artists || []).forEach(a => { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); });
+        artistListEl.setAttribute('data-visible', 'true');
+      });
+      // style for the 'All' item (match artists but emphasize)
+      allLi.style.fontWeight = '700';
+      allLi.style.color = 'var(--text-default)';
+      allLi.addEventListener('mouseenter', () => allLi.style.color = 'var(--black)');
+      allLi.addEventListener('mouseleave', () => allLi.style.color = 'var(--text-default)');
+      ul.appendChild(allLi);
+      (data.artists || []).forEach(a => { const li = document.createElement('li'); li.textContent = a; ul.appendChild(li); });
+      artistListEl.setAttribute('data-visible', 'true');
+    }
+
+    function hideArtistList() {
+      artistListEl.removeAttribute('data-visible');
+    }
+
+    function cancelHide() {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    }
+
+    // show corresponding artist list on hover; hide when leaving the left menu
+    const eraContainer = document.querySelector('.era-filter');
+
+    // Position artist-list 24px to the right of era-filter's natural width
+    function positionArtistList() {
+      const right = eraContainer.getBoundingClientRect().right;
+      artistListEl.style.left = (right + 24) + 'px';
+    }
+    positionArtistList();
+    window.addEventListener('resize', positionArtistList);
+
+    buttons.forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        cancelHide();
+        showArtistList(btn.dataset.era);
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    eraContainer.addEventListener('mouseleave', () => {
+      // small delay for smoother UX
+      hideTimer = setTimeout(() => hideArtistList(), 120);
+    });
+
+    eraContainer.addEventListener('mouseenter', () => cancelHide());
+    // keep the artist list visible while the user hovers it so they can select items
+    artistListEl.addEventListener('mouseenter', () => cancelHide());
+    artistListEl.addEventListener('mouseleave', () => { hideTimer = setTimeout(() => hideArtistList(), 120); });
+
+    // Album metadata
+    const ALBUMS = {
+      "covers/The-Mystery-Kindaichi-Band---Music-Mystery---The-Adventure-Of-Kohsuke-Kindaichi.jpg": { title: "Music Mystery", artist: "The Mystery Kindaichi Band" },
+      "covers/Seiji-Yokoyama---Tomb-Of-Dracula.jpg": { title: "Tomb of Dracula", artist: "Seiji Yokoyama" },
+      "covers/Akira-Miyazawa-&-Soul-Leon---Karajishi-Botan.jpg": { title: "Karajishi Botan", artist: "Akira Miyazawa & Soul Leon" },
+      "covers/Piston-Horiuchi---Enchanted-Drumming-FRONT.jpg": { title: "Enchanted Drumming", artist: "Piston Horiuchi" },
+      "covers/Minoru-Muraoka-and-New-Dimension-Group---Yuri-Furi-Suri.jpg": { title: "Yuri Furi Suri", artist: "Minoru Muraoka & New Dimension Group" },
+      "covers/why-is-scenery-by-ryo-fukui-such-a-controversial-album-in-v0-j0uxquow8a0e1.webp": { title: "Scenery", artist: "Ryo Fukui" },
+      "covers/_Jimmy-Takeuchi-&-The-Exciters---Drum-Drum-Drum-Jimmy-Takeuchi-VS-Japanese-Folk-Music.jpg": { title: "Drum Drum Drum", artist: "Jimmy Takeuchi & The Exciters" },
+      "covers/Piston-Horiuchi---Enchanted-Drumming-BACK.jpg": { title: "Enchanted Drumming (Back)", artist: "Piston Horiuchi" },
+      "covers/_Harry-Hosono-And-The-Yellow-Magic-Band---Paraiso.jpg": { title: "Paraiso", artist: "Harry Hosono & The Yellow Magic Band" },
+      "covers/Tokihiko-Morishita-&-Shigeru-Mizuki---Youkai-Gensou.jpg": { title: "Youkai Gensou", artist: "Tokihiko Morishita & Shigeru Mizuki" },
+      "covers/Masami-Kawahara-Y-Su-Los-Rumbelos---Latin-Flash.jpg": { title: "Latin Flash", artist: "Masami Kawahara" },
+      "covers/Mighty-Salad-Syndicate---Soul-On!-.jpg": { title: "Soul On!", artist: "Mighty Salad Syndicate" }
+    };
+
+    function openDetail(imgUrl) {
+      const album = ALBUMS[imgUrl] || { title: '', artist: '' };
+      document.getElementById('detail-cover').style.backgroundImage = `url('${imgUrl}')`;
+      document.getElementById('detail-title').textContent = album.title;
+      document.getElementById('detail-artist').textContent = album.artist;
+      const scene = document.querySelector('.cards-scene');
+      const mainEl = document.querySelector('main');
+      scene.style.transition = 'opacity 0.3s ease';
+      scene.style.opacity = '0';
+      scene.style.pointerEvents = 'none';
+      mainEl.style.transition = 'opacity 0.3s ease';
+      mainEl.style.opacity = '0';
+      document.getElementById('detail-view').classList.add('visible');
+    }
+
+    function closeDetail() {
+      document.getElementById('detail-view').classList.remove('visible');
+      const scene = document.querySelector('.cards-scene');
+      const mainEl = document.querySelector('main');
+      scene.style.opacity = '1';
+      scene.style.pointerEvents = '';
+      mainEl.style.opacity = '1';
+    }
+
+    document.getElementById('detail-back').addEventListener('click', closeDetail);
+
+    function openArchive() {
+      const scene = document.querySelector('.cards-scene');
+      const mainEl = document.querySelector('main');
+      scene.style.transition = 'opacity 0.3s ease';
+      scene.style.opacity = '0';
+      scene.style.pointerEvents = 'none';
+      mainEl.style.transition = 'opacity 0.3s ease';
+      mainEl.style.opacity = '0';
+      document.getElementById('archive-view').classList.add('visible');
+    }
+
+    function closeArchive() {
+      document.getElementById('archive-view').classList.remove('visible');
+      const scene = document.querySelector('.cards-scene');
+      const mainEl = document.querySelector('main');
+      scene.style.opacity = '1';
+      scene.style.pointerEvents = '';
+      mainEl.style.opacity = '1';
+    }
+
+    document.getElementById('archive-back').addEventListener('click', closeArchive);
+
+    document.querySelector('.archive-grid').addEventListener('click', (e) => {
+      const card = e.target.closest('.archive-card');
+      if (!card) return;
+      const imgUrl = card.style.backgroundImage.replace(/^url\(["']?|["']?\)$/g, '');
+      document.getElementById('archive-view').classList.remove('visible');
+      openDetail(imgUrl);
+    });
+
+    document.getElementById('nav-archive').addEventListener('click', (e) => {
+      e.preventDefault();
+      openArchive();
+    });
+
+    // Drag-and-throw top card — infinite loop
+    const CARD_IMAGES = [
+      "covers/The-Mystery-Kindaichi-Band---Music-Mystery---The-Adventure-Of-Kohsuke-Kindaichi.jpg",
+      "covers/Seiji-Yokoyama---Tomb-Of-Dracula.jpg",
+      "covers/Akira-Miyazawa-&-Soul-Leon---Karajishi-Botan.jpg",
+      "covers/Piston-Horiuchi---Enchanted-Drumming-FRONT.jpg",
+      "covers/Minoru-Muraoka-and-New-Dimension-Group---Yuri-Furi-Suri.jpg",
+      "covers/why-is-scenery-by-ryo-fukui-such-a-controversial-album-in-v0-j0uxquow8a0e1.webp",
+      "covers/_Jimmy-Takeuchi-&-The-Exciters---Drum-Drum-Drum-Jimmy-Takeuchi-VS-Japanese-Folk-Music.jpg",
+      "covers/Piston-Horiuchi---Enchanted-Drumming-BACK.jpg",
+      "covers/_Harry-Hosono-And-The-Yellow-Magic-Band---Paraiso.jpg",
+      "covers/Tokihiko-Morishita-&-Shigeru-Mizuki---Youkai-Gensou.jpg",
+      "covers/Masami-Kawahara-Y-Su-Los-Rumbelos---Latin-Flash.jpg",
+      "covers/Mighty-Salad-Syndicate---Soul-On!-.jpg"
+    ];
+    let colorIdx = 18;
+
+    function cardTransform(level) {
+      return `rotateX(60deg) rotateZ(30deg) translateZ(${level * 10}px)`;
+    }
+
+    function onCardRemoved() {
+      const scene = document.querySelector('.cards-scene');
+      if (!scene) return;
+
+      // Add new card at bottom
+      const newCard = document.createElement('div');
+      newCard.className = 'card-iso';
+      newCard.style.backgroundImage = `url('${CARD_IMAGES[colorIdx % CARD_IMAGES.length]}')`;
+      newCard.style.transform = cardTransform(0);
+      newCard.style.opacity = '0';
+      colorIdx++;
+      scene.insertBefore(newCard, scene.firstChild);
+
+      // Animate all cards to their new level positions
+      const allCards = [...scene.querySelectorAll('.card-iso')];
+      allCards.forEach((card, i) => {
+        card.style.transition = 'transform 0.35s ease';
+        card.style.transform = cardTransform(i);
+      });
+
+      // Fade in new bottom card
+      setTimeout(() => {
+        newCard.style.transition = 'opacity 0.35s ease';
+        newCard.style.opacity = '1';
+      }, 80);
+
+      setTimeout(() => initTopCard(), 50);
+    }
+
+    function initTopCard() {
+      const scene = document.querySelector('.cards-scene');
+      const topCard = scene ? scene.querySelector('.card-iso:last-child') : null;
+      if (!topCard || topCard._dragInit) return;
+      topCard._dragInit = true;
+
+      const level = scene.querySelectorAll('.card-iso').length - 1;
+      const baseTransform = cardTransform(level);
+      topCard.style.cursor = 'grab';
+
+      let isDragging = false;
+      let startX, startY, currentX = 0, currentY = 0;
+      let vx = 0, vy = 0, lastX, lastY;
+
+      topCard.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        startX = e.clientX; startY = e.clientY;
+        lastX = e.clientX; lastY = e.clientY;
+        currentX = 0; currentY = 0;
+        topCard.setPointerCapture(e.pointerId);
+        topCard.style.transition = 'none';
+        topCard.style.cursor = 'grabbing';
+        scene.style.zIndex = '9999';
+        e.preventDefault();
+      });
+
+      topCard.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        vx = e.clientX - lastX;
+        vy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        currentX = e.clientX - startX;
+        currentY = e.clientY - startY;
+        topCard.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) rotateX(60deg) rotateZ(30deg) translateZ(${level * 10 + 20}px)`;
+      });
+
+      topCard.addEventListener('pointerup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        topCard.style.cursor = 'grab';
+
+        const dist = Math.sqrt(currentX ** 2 + currentY ** 2);
+        const speed = Math.sqrt(vx ** 2 + vy ** 2);
+
+        if (dist < 10 && speed < 5) {
+          // Tap — open detail
+          topCard.style.transition = '';
+          topCard.style.transform = baseTransform;
+          const imgUrl = topCard.style.backgroundImage.replace(/^url\(["']?|["']?\)$/g, '');
+          openDetail(imgUrl);
+          return;
+        } else if (dist > 100 || speed > 8) {
+          const scale = Math.max(1200 / Math.max(dist, 1), 15);
+          const throwX = currentX + vx * scale;
+          const throwY = currentY + vy * scale;
+          topCard.style.transition = 'transform 0.55s cubic-bezier(0.2, 0, 0.6, 1), opacity 0.4s ease-out 0.1s';
+          topCard.style.transform = `translate3d(${throwX}px, ${throwY}px, 0) rotateX(60deg) rotateZ(30deg) translateZ(${level * 10 + 20}px)`;
+          topCard.style.opacity = '0';
+          topCard.addEventListener('transitionend', () => {
+            scene.style.zIndex = '';
+            topCard.remove();
+            onCardRemoved();
+          }, { once: true });
+        } else {
+          scene.style.zIndex = '';
+          topCard.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.4, 0.64, 1)';
+          topCard.style.transform = baseTransform;
+        }
+      });
+    }
+
+    initTopCard();
+  </script>
+</body>
+</html>
